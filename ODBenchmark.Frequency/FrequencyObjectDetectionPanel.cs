@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Drawing.Imaging;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -22,6 +24,15 @@ namespace ODBenchmark.Frequency
         private TextBox _targetSizeYTB;
         private TextBox _targetHistogramSizeTB;
         private TextBox _modelPathTB;
+
+        private int _targetX;
+        private int _targetY;
+        private int _targetHistogramSize;
+        private float _sigma;
+        private bool _orginalMeasure;
+        private int _r;
+        private float _threshold;
+        private float _accuracy;
 
         private HarrisCornerDetection _harris;
         private RecognitionModelHistogram _model;
@@ -116,7 +127,7 @@ namespace ODBenchmark.Frequency
             _frequencyPanel.Children.Add(_orginalMeasureCB);
 
             _thresholdTB = new TextBox();
-            _thresholdTB.Text = "50,0";
+            _thresholdTB.Text = "50.0";
             Grid.SetColumn(_thresholdTB, 1);
             Grid.SetRow(_thresholdTB, 2);
             _frequencyPanel.Children.Add(_thresholdTB);
@@ -134,19 +145,19 @@ namespace ODBenchmark.Frequency
             _frequencyPanel.Children.Add(_accuracyTB);
 
             _targetSizeXTB = new TextBox();
-            _targetSizeXTB.Text = "600";
+            _targetSizeXTB.Text = "400";
             Grid.SetColumn(_targetSizeXTB, 1);
             Grid.SetRow(_targetSizeXTB, 5);
             _frequencyPanel.Children.Add(_targetSizeXTB);
 
             _targetSizeYTB = new TextBox();
-            _targetSizeYTB.Text = "600";
+            _targetSizeYTB.Text = "400";
             Grid.SetColumn(_targetSizeYTB, 1);
             Grid.SetRow(_targetSizeYTB, 6);
             _frequencyPanel.Children.Add(_targetSizeYTB);
 
             _targetHistogramSizeTB = new TextBox();
-            _targetHistogramSizeTB.Text = "21";
+            _targetHistogramSizeTB.Text = "20";
             Grid.SetColumn(_targetHistogramSizeTB, 1);
             Grid.SetRow(_targetHistogramSizeTB, 7);
             _frequencyPanel.Children.Add(_targetHistogramSizeTB);
@@ -182,12 +193,21 @@ namespace ODBenchmark.Frequency
         {
             try
             {
-                _harris.orginalMeasure = _orginalMeasureCB.IsChecked.Value;
-                _harris.sigma = float.Parse(_sigmaTB.Text);
-                _harris.r = int.Parse(_radiusTB.Text);
-                _harris.threshold = float.Parse(_thresholdTB.Text);
+                _targetX = int.Parse(_targetSizeXTB.Text);
+                _targetY = int.Parse(_targetSizeYTB.Text);
+                _targetHistogramSize = int.Parse(_targetHistogramSizeTB.Text);
+                _threshold = float.Parse(_thresholdTB.Text, CultureInfo.InvariantCulture);
+                _r = int.Parse(_radiusTB.Text);
+                _orginalMeasure = _orginalMeasureCB.IsChecked.Value;
+                _sigma = float.Parse(_sigmaTB.Text, CultureInfo.InvariantCulture);
+                _accuracy = float.Parse(_accuracyTB.Text, CultureInfo.InvariantCulture);
+
+                _harris.orginalMeasure = _orginalMeasure;
+                _harris.sigma = _sigma;
+                _harris.r = _r;
+                _harris.threshold = _threshold;
                 _harris.Start();
-                _model = new RecognitionModelHistogram(int.Parse(_targetHistogramSizeTB.Text), int.Parse(_targetSizeYTB.Text), int.Parse(_targetSizeXTB.Text));
+                _model = new RecognitionModelHistogram(_targetHistogramSize, _targetY, _targetX);
                 SetModel();
                 return true;
             }
@@ -199,7 +219,7 @@ namespace ODBenchmark.Frequency
 
         public async Task<RecognitionResult> Recogise(System.Drawing.Image img)
         {
-            return await Task.Run(() => RecogniseImage(img));
+            return await RecogniseImage(img);
         }
 
         public void ShowOnPanel(Panel panel)
@@ -209,7 +229,35 @@ namespace ODBenchmark.Frequency
 
         private async Task<RecognitionResult> RecogniseImage(System.Drawing.Image img)
         {
-            return new RecognitionResult();
+            var modelImage = ScaleImage(img, _targetY, _targetX);
+            var points = _harris.ProcessImage(modelImage, _targetY, _targetX);
+            List<IntPoint>[,] recognition = new List<IntPoint>[_targetHistogramSize, _targetHistogramSize];
+            for (var y = 0; y < _targetHistogramSize; y++)
+            {
+                for (var x = 0; x < _targetHistogramSize; x++)
+                {
+                    recognition[y, x] = new List<IntPoint>();
+                }
+            }
+            float histogramRatioX = (float)_targetX / (float)_targetHistogramSize;
+            float histogramRatioY = (float)_targetY / (float)_targetHistogramSize;
+            foreach (var p in points)
+            {
+                recognition[(int)(p.Y / histogramRatioX), (int)(p.X / histogramRatioY)].Add(p);
+            }
+            var recognitionResult = _model.Recognise(recognition, 30, _accuracy, 0.0f);
+            var result = new RecognitionResult();
+            result.MatchFound = recognitionResult.ModelFound;
+            result.Confidence = recognitionResult.RecognitionProb;
+            if (recognitionResult.ModelFound)
+            {
+                result.StartX = (int)(recognitionResult.StartOfFoundModel.X * (_targetX / (float)_targetHistogramSize));
+                result.StartY = (int)(recognitionResult.StartOfFoundModel.Y * (_targetY / (float)_targetHistogramSize));
+                result.EndX = (int)(recognitionResult.EndOfFoundModel.X * (_targetX / (float)_targetHistogramSize));
+                result.EndY = (int)(recognitionResult.EndOfFoundModel.Y * (_targetY / (float)_targetHistogramSize));
+            }
+            
+            return result;
         }
 
         private byte[] ScaleImage(System.Drawing.Image img, int targetY, int targetX)
@@ -218,16 +266,16 @@ namespace ODBenchmark.Frequency
             byte[] source;
             using (var ms = new MemoryStream())
             {
-                img.Save(ms, img.RawFormat);
+                img.Save(ms, ImageFormat.Bmp);
                 source = ms.ToArray();
-            }            
-            var xRatio = img.Width / targetX;
-            var yRatio = img.Height / targetY;
+            }
+            var xRatio = (float)img.Width / (float)targetX;
+            var yRatio = (float)img.Height / (float)targetY;
             for (int y = 0; y < targetY; y++)
             {
                 for (int x = 0; x < targetX; x++)
                 {
-                    var index = (int)((y * img.Width) * yRatio) + (int)(x * xRatio);
+                    var index = (int)((y * img.Width) * yRatio) + (int)(x * xRatio) + source[10]/*BMP Header offset*/;
                     resultImage[y * targetX + x] = (byte)(/*R*/(source[index * 3] * 0.2989) + /*G*/(source[(index * 3) + 1] * 0.5870) + /*B*/(source[(index * 3) + 2] * 0.1140));
                 }
             }
