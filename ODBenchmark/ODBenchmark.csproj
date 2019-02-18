@@ -36,6 +36,11 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Data" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Drawing.Common, Version=4.0.0.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Drawing.Common.4.5.1\lib\net461\System.Drawing.Common.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Core" />
@@ -62,6 +67,7 @@
       <DependentUpon>App.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Controller.cs" />
     <Compile Include="MainWindow.xaml.cs">
       <DependentUpon>MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -85,6 +91,7 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+    <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
@@ -92,6 +99,20 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ODBenchmark.Azure\ODBenchmark.Azure.csproj">
+      <Project>{3500EE56-7205-4CEB-B12D-741B164FE31C}</Project>
+      <Name>ODBenchmark.Azure</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ODBenchmark.Frequency\ODBenchmark.Frequency.csproj">
+      <Project>{005532C1-88F2-460E-A315-DC23ACDF0950}</Project>
+      <Name>ODBenchmark.Frequency</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ODBenchmark.Interfaces\ODBenchmark.Interfaces.csproj">
+      <Project>{EFE4BAAA-5951-4034-BF38-A8DDDFEA8F9C}</Project>
+      <Name>ODBenchmark.Interfaces</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

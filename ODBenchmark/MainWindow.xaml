@@ -5,8 +5,35 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ODBenchmark"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
-        
+        Title="MainWindow" Height="700" Width="1000" ResizeMode="NoResize">
+    <Grid HorizontalAlignment="Left" Margin="3,3,0,0">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="300"/>
+            <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <StackPanel Grid.Row="0" Grid.Column="0">
+            <WrapPanel>
+                <Label Content="Input folder:" Width="80"/>
+                <TextBox x:Name="InputFolderTB" Width="150"/>
+                <Button x:Name="InputFolderButton" Width="70" Content="Choose"/>
+            </WrapPanel>
+            <WrapPanel>
+                <Label Content="Output folder:" Width="80"/>
+                <TextBox x:Name="OutputFolderTB" Width="150"/>
+                <Button x:Name="OutputFolderButton" Width="70" Content="Choose"/>
+            </WrapPanel>
+            <Button x:Name="StartProcessButton" Content="Start process"/>
+        </StackPanel>
+        <StackPanel Grid.Row="0" Grid.Column="1" Width="680">
+            <ComboBox Width="100" x:Name="PanelCB">
+                <ComboBoxItem x:Name="Azure">Azure</ComboBoxItem>
+                <ComboBoxItem x:Name="Frequency">Frequency</ComboBoxItem>
+            </ComboBox>
+            <StackPanel x:Name="ODPanel"/>
+        </StackPanel>
     </Grid>
+    
 </Window>
