@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing.Imaging;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -10,12 +12,10 @@ namespace ODBenchmark.Frequency
 {
     public class FrequencyObjectDetectionPanel: IObjectDetectionPanel
     {
-        private FrequencyObjectDetection _frequencyObjectDetection;
-
         private Grid _frequencyPanel;        
         private TextBox _sigmaTB;
         private CheckBox _orginalMeasureCB;
-        private TextBox _threshold;
+        private TextBox _thresholdTB;
         private TextBox _radiusTB;
         private TextBox _accuracyTB;
         private TextBox _targetSizeXTB;
@@ -23,10 +23,12 @@ namespace ODBenchmark.Frequency
         private TextBox _targetHistogramSizeTB;
         private TextBox _modelPathTB;
 
+        private HarrisCornerDetection _harris;
+        private RecognitionModelHistogram _model;
+
         public FrequencyObjectDetectionPanel()
         {
-            _frequencyObjectDetection = new FrequencyObjectDetection();
-
+            _harris = new HarrisCornerDetection();
             #region Grid definition
             _frequencyPanel = new Grid();
             _frequencyPanel.ColumnDefinitions.Add(new ColumnDefinition());
@@ -40,7 +42,6 @@ namespace ODBenchmark.Frequency
             _frequencyPanel.RowDefinitions.Add(new RowDefinition());
             _frequencyPanel.RowDefinitions.Add(new RowDefinition());
             _frequencyPanel.RowDefinitions.Add(new RowDefinition());
-            _frequencyObjectDetection = new FrequencyObjectDetection();
             #endregion
 
             #region Labels
@@ -114,11 +115,11 @@ namespace ODBenchmark.Frequency
             Grid.SetRow(_orginalMeasureCB, 1);
             _frequencyPanel.Children.Add(_orginalMeasureCB);
 
-            _threshold = new TextBox();
-            _threshold.Text = "50";
-            Grid.SetColumn(_threshold, 1);
-            Grid.SetRow(_threshold, 2);
-            _frequencyPanel.Children.Add(_threshold);
+            _thresholdTB = new TextBox();
+            _thresholdTB.Text = "50,0";
+            Grid.SetColumn(_thresholdTB, 1);
+            Grid.SetRow(_thresholdTB, 2);
+            _frequencyPanel.Children.Add(_thresholdTB);
 
             _radiusTB = new TextBox();
             _radiusTB.Text = "3";
@@ -181,10 +182,16 @@ namespace ODBenchmark.Frequency
         {
             try
             {
-
+                _harris.orginalMeasure = _orginalMeasureCB.IsChecked.Value;
+                _harris.sigma = float.Parse(_sigmaTB.Text);
+                _harris.r = int.Parse(_radiusTB.Text);
+                _harris.threshold = float.Parse(_thresholdTB.Text);
+                _harris.Start();
+                _model = new RecognitionModelHistogram(int.Parse(_targetHistogramSizeTB.Text), int.Parse(_targetSizeYTB.Text), int.Parse(_targetSizeXTB.Text));
+                SetModel();
                 return true;
             }
-            catch
+            catch(Exception e)
             {
                 return false;
             }
@@ -192,12 +199,62 @@ namespace ODBenchmark.Frequency
 
         public async Task<RecognitionResult> Recogise(System.Drawing.Image img)
         {
-            return await Task.Run(() => _frequencyObjectDetection.Recognise(img));
+            return await Task.Run(() => RecogniseImage(img));
         }
 
         public void ShowOnPanel(Panel panel)
         {
             panel.Children.Add(_frequencyPanel);
+        }
+
+        private async Task<RecognitionResult> RecogniseImage(System.Drawing.Image img)
+        {
+            return new RecognitionResult();
+        }
+
+        private byte[] ScaleImage(System.Drawing.Image img, int targetY, int targetX)
+        {
+            byte[] resultImage = new byte[targetX * targetY];
+            byte[] source;
+            using (var ms = new MemoryStream())
+            {
+                img.Save(ms, img.RawFormat);
+                source = ms.ToArray();
+            }            
+            var xRatio = img.Width / targetX;
+            var yRatio = img.Height / targetY;
+            for (int y = 0; y < targetY; y++)
+            {
+                for (int x = 0; x < targetX; x++)
+                {
+                    var index = (int)((y * img.Width) * yRatio) + (int)(x * xRatio);
+                    resultImage[y * targetX + x] = (byte)(/*R*/(source[index * 3] * 0.2989) + /*G*/(source[(index * 3) + 1] * 0.5870) + /*B*/(source[(index * 3) + 2] * 0.1140));
+                }
+            }
+            return resultImage;
+        }
+
+        private void SetModel()
+        {
+            var modelImage = ScaleImage(System.Drawing.Image.FromFile(_modelPathTB.Text), int.Parse(_targetSizeYTB.Text), int.Parse(_targetSizeXTB.Text));
+            var points = _harris.ProcessImage(modelImage, int.Parse(_targetSizeXTB.Text), int.Parse(_targetSizeYTB.Text));
+            var histogramSize = int.Parse(_targetHistogramSizeTB.Text);
+            List<IntPoint>[,] recognition = new List<IntPoint>[histogramSize, histogramSize];
+            for (var y = 0; y < histogramSize; y++)
+            {
+                for (var x = 0; x < histogramSize; x++)
+                {
+                    recognition[y, x] = new List<IntPoint>();
+                }
+            }
+            float histogramRatioX = (float)int.Parse(_targetSizeXTB.Text) / (float)histogramSize;
+            float histogramRatioY = (float)int.Parse(_targetSizeYTB.Text) / (float)histogramSize;
+            foreach (var p in points)
+            {
+                recognition[(int)(p.Y / histogramRatioX), (int)(p.X / histogramRatioY)].Add(p);
+            }
+            _model.SetModel(recognition, 0.0f);
+            _model.CalculatePatern();
         }
     }
 }

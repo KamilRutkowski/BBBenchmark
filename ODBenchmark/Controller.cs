@@ -43,23 +43,23 @@ namespace ODBenchmark
             if (_azurePanel.PreprocessSetup() && _frequencyPanel.PreprocessSetup())
             {
                 //Read from image collection
-                var imageFiles = Directory.GetFiles(inputFolderPath, "*.jpg|*.jpeg|*.png|*.bmp");
+                var imageFiles = Directory.GetFiles(inputFolderPath).Where(path => path.EndsWith(".jpg") || path.EndsWith(".jpeg") || path.EndsWith(".png") || path.EndsWith(".bmp")).ToArray();
 
-                var azureResults = new List<RecognitionResult>(imageFiles.Length);
+                //var azureResults = new List<RecognitionResult>(imageFiles.Length);
                 var freqResults = new List<RecognitionResult>(imageFiles.Length);
 
                 foreach (var imagePath in imageFiles)
                 {
                     var img = System.Drawing.Image.FromFile(imagePath);
                     var tasks = new Task<RecognitionResult>[2];
-                    tasks[0] = _azurePanel.Recogise(img);
+                    //tasks[0] = _azurePanel.Recogise(img);
                     tasks[1] = _frequencyPanel.Recogise(img);
                     Task.WaitAll(tasks);
-                    azureResults.Add(tasks[0].Result);
+                    //azureResults.Add(tasks[0].Result);
                     freqResults.Add(tasks[1].Result);
                 }
                 //Save results
-                File.WriteAllLines(Path.Combine(outputDirectoryPath, "azure.txt"), azureResults.Select(res => res.ToString()));
+                //File.WriteAllLines(Path.Combine(outputDirectoryPath, "azure.txt"), azureResults.Select(res => res.ToString()));
                 File.WriteAllLines(Path.Combine(outputDirectoryPath, "freq.txt"), freqResults.Select(res => res.ToString()));
             }
             else
