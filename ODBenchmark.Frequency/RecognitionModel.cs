@@ -32,7 +32,7 @@ namespace ODBenchmark.Frequency
 
         public abstract void CalculatePatern();
 
-        public abstract RecognisedModel Recognise(List<IntPoint>[,] model, int broadSearchItems, float accuracy, float tilt);
+        public abstract RecognisedModel Recognise(List<IntPoint>[,] model, float accuracy, float tilt);
     }
 
     public class RecognitionModelHistogram : RecognitionModelBase
@@ -41,6 +41,7 @@ namespace ODBenchmark.Frequency
         private bool[,] _modelPatternTresholded;
         private List<IntPoint> _pattern;
         private List<IntPoint> _patternVectorised;
+        private bool _patternCenter;
         private List<IntPoint>[] _patternDistances;
         private int[] _patternCounts;
         private int _patternNonZero;
@@ -54,6 +55,7 @@ namespace ODBenchmark.Frequency
             _patternDistances = new List<IntPoint>[20];
             _patternCounts = new int[20];
             _patternNonZero = 0;
+            _patternCenter = false;
             for (int i = 0; i < 20; i++)
             {
                 _patternDistances[i] = new List<IntPoint>();
@@ -70,7 +72,7 @@ namespace ODBenchmark.Frequency
 
         private void VectorisePoints()
         {
-            var centerPoint = new IntPoint(Size / 2, Size / 2);
+            var centerPoint = new IntPoint((Size + 1) / 2, (Size + 1) / 2);
             _patternVectorised.Clear();
             foreach (var point in _pattern)
             {
@@ -88,6 +90,11 @@ namespace ODBenchmark.Frequency
             }
             foreach (var vec in _patternVectorised)
             {
+                if ((vec.X == 0) && (vec.Y == 0))
+                {
+                    _patternCenter = true;
+                    continue;
+                }
                 var angleIndex = (int)(vec.VectorNormalized() * 10) % 20;
 
                 _patternDistances[angleIndex].Add(vec);
@@ -101,7 +108,7 @@ namespace ODBenchmark.Frequency
             }
         }
 
-        public override RecognisedModel Recognise(List<IntPoint>[,] model, int broadSearchItems, float accuracy, float tilt)
+        public override RecognisedModel Recognise(List<IntPoint>[,] model, float accuracy, float tilt)
         {
             if (_patternNonZero == 0)
                 return new RecognisedModel();
@@ -113,6 +120,12 @@ namespace ODBenchmark.Frequency
 
         }
 
+        /// <summary>
+        /// Create array of pattern from data and make bool array where cell holds more than a 0.5 of maximum cell
+        /// </summary>
+        /// <param name="pattern">Return pattern array</param>
+        /// <param name="threashold">Return threshold array</param>
+        /// <param name="data">Input data</param>
         private void FillPatternAndThreashold(float[,] pattern, bool[,] threashold, List<IntPoint>[,] data)
         {
             int maxNumberOfElements = 0;
@@ -134,6 +147,11 @@ namespace ODBenchmark.Frequency
             }
         }
 
+        /// <summary>
+        /// Change form [Size,Size] bool array into list of IntPoints for values == true in array
+        /// </summary>
+        /// <param name="threashold"></param>
+        /// <returns></returns>
         private List<IntPoint> ClusterPattern(bool[,] threashold)
         {
             List<IntPoint> clusters = new List<IntPoint>();
@@ -153,36 +171,52 @@ namespace ODBenchmark.Frequency
         {
             var recognition = new RecognisedModel();
             float bestAccuracy = 0.0f;
+            //To offset possible center from edge of picture
             for (var y = 5; y < (Size - 5); y++)
             {
                 for (var x = 5; x < (Size - 5); x++)
                 {
-                    int[,] votingTable = new int[20, 10];
+                    int[,] votingTable = new int[20, 5];
+                    bool centerVote = false;
                     IntPoint centerPoint = new IntPoint(y, x);
                     List<IntPoint> sampleVectors = new List<IntPoint>();
+                    //Calculate move vectors
                     foreach (var sample in samples)
                     {
                         sampleVectors.Add(centerPoint.CalculateMoveVector(sample));
                     }
                     foreach (var sampleVec in sampleVectors)
                     {
+                        //If it's a center piece
+                        if ((sampleVec.X == 0) && (sampleVec.Y == 0))
+                        {
+                            centerVote = true;
+                            continue;
+                        }
+                        //Calculate angle index so we can know to which vectors should we compare our vector
                         var angleVector = sampleVec.VectorNormalized() - (tilt - _modelTilt);
                         if (angleVector < 0)
                             angleVector += 2.0f;
                         angleVector = angleVector % 2.0f;
                         var angleIndex = (int)(angleVector * 10.0f);
 
+                        //Fill possible distances of our vector in comparision to other distances found in model with similar angle from center
                         foreach (var mod in _patternDistances[angleIndex])
                         {
                             float angleModel = mod.VectorNormalized();
                             var currentScale = mod.CalculateScaleFromMoveVectors(sampleVec);
-                            var scale = (int)((currentScale - 0.5f) * 10);//We want to find scales in 0.5 to 1.5 and index them from 0 to 9
-                            if ((scale > 9) || (scale < 0))
+                            var scale = (int)((currentScale - 0.79f) * 10);//We want to find scales in 0.8 to 1.2 and index them from 0 to 4
+                            if ((scale > 4) || (scale < 0))
                                 continue;
                             votingTable[angleIndex, scale]++;
                         }
                     }
-                    for (int scaleIndex = 0; scaleIndex < 10; scaleIndex++)
+                    //If center in model and center in calculated pattern is the same
+                    if (centerVote == _patternCenter)
+                        centerVote = true;
+                    else
+                        centerVote = false;
+                    for (int scaleIndex = 0; scaleIndex < 5; scaleIndex++)
                     {
                         float accurateMatches = 0.0f;
                         for (int i = 0; i < 20; i++)
@@ -197,12 +231,12 @@ namespace ODBenchmark.Frequency
                                 accurateMatches -= tmp / 3.0f;
 
                         }
-                        accurateMatches = accurateMatches / 20.0f;
+                        accurateMatches = (float)(accurateMatches + (centerVote? 1 : 0)) / 20.0f;
                         if (bestAccuracy < accurateMatches)
                         {
                             bestAccuracy = accurateMatches;
                             recognition.ModelFound = bestAccuracy > accuracy;
-                            int objectR = (int)((Size / 2.0f) * (scaleIndex + 5.1f) / 10.0f);
+                            int objectR = (int)((Size / 2.0f) * (scaleIndex + 8.1f) / 10.0f);
                             recognition.RecognitionProb = bestAccuracy;
                             recognition.StartOfFoundModel = new IntPoint(y - objectR, x - objectR);
                             recognition.EndOfFoundModel = new IntPoint(y + objectR, x + objectR);

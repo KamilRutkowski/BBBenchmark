@@ -33,6 +33,7 @@ namespace ODBenchmark.Frequency
         private int _r;
         private float _threshold;
         private float _accuracy;
+        private string _modelImgPath;
 
         private HarrisCornerDetection _harris;
         private RecognitionModelHistogram _model;
@@ -145,19 +146,19 @@ namespace ODBenchmark.Frequency
             _frequencyPanel.Children.Add(_accuracyTB);
 
             _targetSizeXTB = new TextBox();
-            _targetSizeXTB.Text = "400";
+            _targetSizeXTB.Text = "200";
             Grid.SetColumn(_targetSizeXTB, 1);
             Grid.SetRow(_targetSizeXTB, 5);
             _frequencyPanel.Children.Add(_targetSizeXTB);
 
             _targetSizeYTB = new TextBox();
-            _targetSizeYTB.Text = "400";
+            _targetSizeYTB.Text = "200";
             Grid.SetColumn(_targetSizeYTB, 1);
             Grid.SetRow(_targetSizeYTB, 6);
             _frequencyPanel.Children.Add(_targetSizeYTB);
 
             _targetHistogramSizeTB = new TextBox();
-            _targetHistogramSizeTB.Text = "20";
+            _targetHistogramSizeTB.Text = "21";
             Grid.SetColumn(_targetHistogramSizeTB, 1);
             Grid.SetRow(_targetHistogramSizeTB, 7);
             _frequencyPanel.Children.Add(_targetHistogramSizeTB);
@@ -201,6 +202,7 @@ namespace ODBenchmark.Frequency
                 _orginalMeasure = _orginalMeasureCB.IsChecked.Value;
                 _sigma = float.Parse(_sigmaTB.Text, CultureInfo.InvariantCulture);
                 _accuracy = float.Parse(_accuracyTB.Text, CultureInfo.InvariantCulture);
+                _modelImgPath = _modelPathTB.Text;
 
                 _harris.orginalMeasure = _orginalMeasure;
                 _harris.sigma = _sigma;
@@ -245,7 +247,7 @@ namespace ODBenchmark.Frequency
             {
                 recognition[(int)(p.Y / histogramRatioX), (int)(p.X / histogramRatioY)].Add(p);
             }
-            var recognitionResult = _model.Recognise(recognition, 30, _accuracy, 0.0f);
+            var recognitionResult = _model.Recognise(recognition, _accuracy, 0.0f);
             var result = new RecognitionResult();
             result.MatchFound = recognitionResult.ModelFound;
             result.Confidence = recognitionResult.RecognitionProb;
@@ -284,19 +286,18 @@ namespace ODBenchmark.Frequency
 
         private void SetModel()
         {
-            var modelImage = ScaleImage(System.Drawing.Image.FromFile(_modelPathTB.Text), int.Parse(_targetSizeYTB.Text), int.Parse(_targetSizeXTB.Text));
-            var points = _harris.ProcessImage(modelImage, int.Parse(_targetSizeXTB.Text), int.Parse(_targetSizeYTB.Text));
-            var histogramSize = int.Parse(_targetHistogramSizeTB.Text);
-            List<IntPoint>[,] recognition = new List<IntPoint>[histogramSize, histogramSize];
-            for (var y = 0; y < histogramSize; y++)
+            var modelImage = ScaleImage(System.Drawing.Image.FromFile(_modelImgPath), _targetY, _targetX);
+            var points = _harris.ProcessImage(modelImage, _targetY, _targetX);
+            List<IntPoint>[,] recognition = new List<IntPoint>[_targetHistogramSize, _targetHistogramSize];
+            for (var y = 0; y < _targetHistogramSize; y++)
             {
-                for (var x = 0; x < histogramSize; x++)
+                for (var x = 0; x < _targetHistogramSize; x++)
                 {
                     recognition[y, x] = new List<IntPoint>();
                 }
             }
-            float histogramRatioX = (float)int.Parse(_targetSizeXTB.Text) / (float)histogramSize;
-            float histogramRatioY = (float)int.Parse(_targetSizeYTB.Text) / (float)histogramSize;
+            float histogramRatioX = (float)_targetX / (float)_targetHistogramSize;
+            float histogramRatioY = (float)_targetY / (float)_targetHistogramSize;
             foreach (var p in points)
             {
                 recognition[(int)(p.Y / histogramRatioX), (int)(p.X / histogramRatioY)].Add(p);

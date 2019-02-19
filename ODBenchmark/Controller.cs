@@ -56,6 +56,10 @@ namespace ODBenchmark
                     tasks[0] = Task.Run(() => _frequencyPanel.Recogise(img));
                     Task.WaitAll(tasks);
                     //azureResults.Add(tasks[0].Result);
+                    foreach(var res in tasks)
+                    {
+                        res.Result.FileName = Path.GetFileName(imagePath);
+                    }
                     freqResults.Add(tasks[0].Result);
                 }
                 //Save results

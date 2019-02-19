@@ -8,6 +8,7 @@ namespace ODBenchmark.Interfaces
 {
     public class RecognitionResult
     {
+        public string FileName { get; set; } = "";
         public bool MatchFound { get; set; }
         public int StartX { get; set; }
         public int StartY { get; set; }
@@ -17,7 +18,7 @@ namespace ODBenchmark.Interfaces
 
         public override string ToString()
         {
-            return $"{MatchFound};{StartX};{StartY};{EndX};{EndY};{Confidence}";
+            return $"{FileName};{MatchFound};{StartX};{StartY};{EndX};{EndY};{Confidence}";
         }
     }
 }
