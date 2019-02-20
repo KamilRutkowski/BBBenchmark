@@ -247,18 +247,19 @@ namespace ODBenchmark.Frequency
             {
                 recognition[(int)(p.Y / histogramRatioX), (int)(p.X / histogramRatioY)].Add(p);
             }
+
+            //For recognition
             var recognitionResult = _model.Recognise(recognition, _accuracy, 0.0f);
             var result = new RecognitionResult();
             result.MatchFound = recognitionResult.ModelFound;
             result.Confidence = recognitionResult.RecognitionProb;
             if (recognitionResult.ModelFound)
             {
-                result.StartX = (int)(recognitionResult.StartOfFoundModel.X * (_targetX / (float)_targetHistogramSize));
-                result.StartY = (int)(recognitionResult.StartOfFoundModel.Y * (_targetY / (float)_targetHistogramSize));
-                result.EndX = (int)(recognitionResult.EndOfFoundModel.X * (_targetX / (float)_targetHistogramSize));
-                result.EndY = (int)(recognitionResult.EndOfFoundModel.Y * (_targetY / (float)_targetHistogramSize));
+                result.StartX = (int)(recognitionResult.StartOfFoundModel.X * (img.Width / (float)_targetHistogramSize));
+                result.StartY = (int)(recognitionResult.StartOfFoundModel.Y * (img.Height / (float)_targetHistogramSize));
+                result.EndX = (int)(recognitionResult.EndOfFoundModel.X * (img.Width / (float)_targetHistogramSize));
+                result.EndY = (int)(recognitionResult.EndOfFoundModel.Y * (img.Height / (float)_targetHistogramSize));
             }
-            
             return result;
         }
 
@@ -277,7 +278,7 @@ namespace ODBenchmark.Frequency
             {
                 for (int x = 0; x < targetX; x++)
                 {
-                    var index = (int)((y * img.Width) * yRatio) + (int)(x * xRatio) + source[10]/*BMP Header offset*/;
+                    var index = ((int)(y * yRatio) * img.Width) + (int)(x * xRatio) + source[10]/*BMP Header offset*/;
                     resultImage[y * targetX + x] = (byte)(/*R*/(source[index * 3] * 0.2989) + /*G*/(source[(index * 3) + 1] * 0.5870) + /*B*/(source[(index * 3) + 2] * 0.1140));
                 }
             }
@@ -302,6 +303,7 @@ namespace ODBenchmark.Frequency
             {
                 recognition[(int)(p.Y / histogramRatioX), (int)(p.X / histogramRatioY)].Add(p);
             }
+            //For model setting
             _model.SetModel(recognition, 0.0f);
             _model.CalculatePatern();
         }
