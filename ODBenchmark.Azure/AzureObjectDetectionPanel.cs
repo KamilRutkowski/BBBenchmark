@@ -35,7 +35,7 @@ namespace ODBenchmark.Azure
             }
         }
 
-        public async Task<RecognitionResult> Recogise(System.Drawing.Image img)
+        public async Task<RecognitionResult> Recogise(System.Drawing.Image img, string fileName)
         {
             return await Task.Run(() => _azureObjectDetection.Recognise(img));
         }

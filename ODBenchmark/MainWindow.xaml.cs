@@ -54,6 +54,7 @@ namespace ODBenchmark
             StartProcessButton.Click += (sender, eventArgs) =>
             {
                 _controller.StartProcess(InputFolderTB.Text, OutputFolderTB.Text);
+                System.Windows.MessageBox.Show("Done");
             };
 
             InputFolderButton.Click += (sender, eventArgs) =>

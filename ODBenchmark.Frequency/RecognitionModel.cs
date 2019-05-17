@@ -6,36 +6,7 @@ using System.Threading.Tasks;
 
 namespace ODBenchmark.Frequency
 {
-    public abstract class RecognitionModelBase
-    {
-        public int Size { get; set; }
-        protected List<IntPoint>[,] _data;
-        protected int _resolutionX;
-        protected int _resolutionY;
-        protected float _modelTilt;
-
-        protected List<IntPoint> _recognitionPatern;
-
-        public RecognitionModelBase(int size, int resolutionY, int resolutionX)
-        {
-            Size = size;
-            _data = new List<IntPoint>[Size, Size];
-            _resolutionY = resolutionY;
-            _resolutionX = resolutionX;
-        }
-
-        public void SetModel(List<IntPoint>[,] model, float modelTilt)
-        {
-            _data = model;
-            _modelTilt = modelTilt;
-        }
-
-        public abstract void CalculatePatern();
-
-        public abstract RecognisedModel Recognise(List<IntPoint>[,] model, float accuracy, float tilt);
-    }
-
-    public class RecognitionModelHistogram : RecognitionModelBase
+    public class RecognitionModelHistogram
     {
         private float[,] _modelPattern;
         private bool[,] _modelPatternTresholded;
@@ -45,10 +16,27 @@ namespace ODBenchmark.Frequency
         private List<IntPoint>[] _patternDistances;
         private int[] _patternCounts;
         private int _patternNonZero;
-        private int _angleDivisions = 30;
+        private int _angleDivisions = 20;
+        private float _modelGPSLatitude = 0.0f;
+        private float _modelGPSLongitude = 0.0f;
+        private float _modelWorldModelRotation = 0.0f;        
+        private float _modelWorldModelVerticalTilt = 0.0f;
+        private float _modelTilt = 0.0f;
 
-        public RecognitionModelHistogram(int size, int resolutionY, int resolutionX) : base(size, resolutionY, resolutionX)
+        public int Size { get; set; }
+        protected List<IntPoint>[,] _data;
+        protected int _resolutionX;
+        protected int _resolutionY;
+        
+
+        protected List<IntPoint> _recognitionPatern;
+
+        public RecognitionModelHistogram(int size, int resolutionY, int resolutionX)
         {
+            Size = size;
+            _data = new List<IntPoint>[Size, Size];
+            _resolutionY = resolutionY;
+            _resolutionX = resolutionX;
             _modelPattern = new float[Size, Size];
             _modelPatternTresholded = new bool[Size, Size];
             _patternVectorised = new List<IntPoint>();
@@ -63,7 +51,7 @@ namespace ODBenchmark.Frequency
             }
         }
 
-        public override void CalculatePatern()
+        public void CalculatePatern()
         {
             FillPatternAndThreashold(_modelPattern, _modelPatternTresholded, _data);
             _pattern = ClusterPattern(_modelPatternTresholded);
@@ -109,7 +97,20 @@ namespace ODBenchmark.Frequency
             }
         }
 
-        public override RecognisedModel Recognise(List<IntPoint>[,] model, float accuracy, float tilt)
+        public int IsViableForImageRecognition(float worldModelRotation, float worldModelVerticalTilt, float GPSLatitude, float GPSLongitude)
+        {
+            if((Math.Abs(GPSLatitude - _modelGPSLatitude) < 0.0005) && (Math.Abs(GPSLongitude - _modelGPSLongitude) < 0.001))
+            {
+                if ((Math.Abs(worldModelRotation - _modelWorldModelRotation) < 0.2) && (Math.Abs(worldModelVerticalTilt - _modelWorldModelVerticalTilt) < 0.2))
+                {
+                    return 0;
+                }
+                return 1;
+            }
+            return 2;
+        }
+
+        public RecognisedModel Recognise(List<IntPoint>[,] model, float accuracy, float tilt)
         {
             if (_patternNonZero == 0)
                 return new RecognisedModel();
@@ -195,12 +196,13 @@ namespace ODBenchmark.Frequency
                             continue;
                         }
                         //Calculate angle index so we can know to which vectors should we compare our vector
-                        var angleIndex = (int)(Math.Round(((sampleVec.VectorNormalized() - (tilt - _modelTilt)) * _angleDivisions / 2.0f)) % _angleDivisions);
+                        var normalized = sampleVec.VectorNormalized();
+                        var angleIndex = (int)(Math.Round(((normalized + (tilt - _modelTilt)) * _angleDivisions / 2.0f)) % _angleDivisions);
+                        angleIndex = (angleIndex + _angleDivisions) % _angleDivisions;
 
                         //Fill possible distances of our vector in comparision to other distances found in model with similar angle from center
                         foreach (var mod in _patternDistances[angleIndex])
                         {
-                            
                             float angleModel = mod.VectorNormalized();
                             var currentScale = mod.CalculateScaleFromMoveVectors(sampleVec);
                             var scale = (int)Math.Round((currentScale - 0.8f) * 10);//We want to find scales in 0.8 to 1.2 and index them from 0 to 4
@@ -248,8 +250,17 @@ namespace ODBenchmark.Frequency
             }
             return recognition;
         }
-    }
 
+        public void SetModel(List<IntPoint>[,] model, float tilt, float worldModelRotation, float worldModelVerticalTilt, float GPSLatitude, float GPSLongitude)
+        {
+            _data = model;
+            _modelTilt = tilt;
+            _modelGPSLatitude = GPSLatitude;
+            _modelGPSLongitude = GPSLongitude;
+            _modelWorldModelRotation = worldModelRotation;
+            _modelWorldModelVerticalTilt = worldModelVerticalTilt;
+        }
+    }
     public class RecognisedModel
     {
         public IntPoint StartOfFoundModel { get; set; }

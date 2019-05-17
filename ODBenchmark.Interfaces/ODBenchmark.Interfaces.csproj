@@ -45,6 +45,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ImageAdditionalData.cs" />
     <Compile Include="IObjectDetection.cs" />
     <Compile Include="IObjectDetectionPanel.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
