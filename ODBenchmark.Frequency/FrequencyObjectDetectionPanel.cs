@@ -270,9 +270,9 @@ namespace ODBenchmark.Frequency
             }
         }
 
-        public async Task<RecognitionResult> Recogise(System.Drawing.Image img, string fileName)
+        public async Task<RecognitionResult> Recogise( string filePath)
         {
-            return await RecogniseImage(img, fileName);
+            return await RecogniseImage(filePath);
         }
 
         public void ShowOnPanel(Panel panel)
@@ -280,15 +280,21 @@ namespace ODBenchmark.Frequency
             panel.Children.Add(_frequencyPanel);
         }
 
-        private async Task<RecognitionResult> RecogniseImage(System.Drawing.Image img, string fileName)
+        private async Task<RecognitionResult> RecogniseImage(string filePath)
         {
+            var fileName = Path.GetFileName(filePath);
             var additionalData = _additionalImageDatas.FirstOrDefault(data => data.FileName == fileName);
+            if (additionalData == null)
+                return new RecognitionResult();
+            additionalData.NormalizeTilts();
             var recognitionPhase = _model.IsViableForImageRecognition(additionalData.WorldModelRotation, additionalData.WorldModelVerticalTilt, additionalData.Latitude, additionalData.Longitude);
             if (recognitionPhase != 0)
                 return new RecognitionResult() { RecognitionPhase = recognitionPhase };
             //Process image
+            var img = System.Drawing.Image.FromFile(filePath);
             var modelImage = ScaleImage(img, _targetY, _targetX);
             var points = _harris.ProcessImage(modelImage, _targetY, _targetX);
+            SaveScaledImageWithPoints(modelImage, points, filePath);
             List<IntPoint>[,] recognition = new List<IntPoint>[_targetHistogramSize, _targetHistogramSize];
             for (var y = 0; y < _targetHistogramSize; y++)
             {
@@ -334,11 +340,30 @@ namespace ODBenchmark.Frequency
             {
                 for (int x = 0; x < targetX; x++)
                 {
-                    var index = ((int)(y * yRatio) * img.Width) + (int)(x * xRatio) + source[10]/*BMP Header offset*/;
-                    resultImage[y * targetX + x] = (byte)(/*R*/(source[index * 3] * 0.2989) + /*G*/(source[(index * 3) + 1] * 0.5870) + /*B*/(source[(index * 3) + 2] * 0.1140));
+                    var index = ((int)(y * yRatio) * img.Width) + (int)(x * xRatio) + 20;//(source[10] / 8)/*BMP Header offset*/;
+                    resultImage[(y * targetX) + x] = (byte)(/*R*/(source[index * 3] * 0.2989) + /*G*/(source[(index * 3) + 1] * 0.5870) + /*B*/(source[(index * 3) + 2] * 0.1140));
                 }
             }
             return resultImage;
+        }
+
+        private void SaveScaledImageWithPoints(byte[] grayImg, List<IntPoint> points, string path)
+        {
+            path = path.Replace(Path.GetExtension(path), "out.jpg");
+            var gray24 = new byte[grayImg.Length * 3];
+            
+            Bitmap bmp = new Bitmap(_targetX, _targetY, PixelFormat.Format24bppRgb);
+            Rectangle rect = new Rectangle(0, 0, bmp.Width, bmp.Height);
+            BitmapData bmpData = bmp.LockBits(rect, ImageLockMode.ReadWrite, bmp.PixelFormat);
+
+            IntPtr ptr = bmpData.Scan0;
+            System.Runtime.InteropServices.Marshal.Copy(ptr, gray24, 0, gray24.Length);
+            for (int i = 0; i < gray24.Length; i++)
+                gray24[i] = grayImg[i / 3];
+            System.Runtime.InteropServices.Marshal.Copy(gray24, 0, ptr, gray24.Length);
+            // Unlock the bits.
+            bmp.UnlockBits(bmpData);
+            bmp.Save(path);
         }
 
         private void SetModel()
@@ -346,6 +371,7 @@ namespace ODBenchmark.Frequency
             var modelImage = ScaleImage(System.Drawing.Image.FromFile(_modelImgPath), _targetY, _targetX);
             string fileName = Path.GetFileName(_modelImgPath);
             var additionalData = _additionalImageDatas.FirstOrDefault(data => data.FileName == fileName);
+            additionalData.NormalizeTilts();
             var points = _harris.ProcessImage(modelImage, _targetY, _targetX);
             List<IntPoint>[,] recognition = new List<IntPoint>[_targetHistogramSize, _targetHistogramSize];
             for (var y = 0; y < _targetHistogramSize; y++)

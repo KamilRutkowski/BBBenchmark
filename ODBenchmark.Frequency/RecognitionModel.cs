@@ -101,7 +101,7 @@ namespace ODBenchmark.Frequency
         {
             if((Math.Abs(GPSLatitude - _modelGPSLatitude) < 0.0005) && (Math.Abs(GPSLongitude - _modelGPSLongitude) < 0.001))
             {
-                if ((Math.Abs(worldModelRotation - _modelWorldModelRotation) < 0.2) && (Math.Abs(worldModelVerticalTilt - _modelWorldModelVerticalTilt) < 0.2))
+                if ((Math.Abs(worldModelRotation - _modelWorldModelRotation) < 0.3f) && (Math.Abs(worldModelVerticalTilt - _modelWorldModelVerticalTilt) < 0.3f))
                 {
                     return 0;
                 }

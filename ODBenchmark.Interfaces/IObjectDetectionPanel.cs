@@ -12,6 +12,6 @@ namespace ODBenchmark.Interfaces
     {
         void ShowOnPanel(Panel panel);
         bool PreprocessSetup();
-        Task<RecognitionResult> Recogise(System.Drawing.Image img, string fileName);
+        Task<RecognitionResult> Recogise(string fileName);
     }
 }

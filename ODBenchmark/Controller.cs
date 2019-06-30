@@ -50,10 +50,9 @@ namespace ODBenchmark
 
                 foreach (var imagePath in imageFiles)
                 {
-                    var img = System.Drawing.Image.FromFile(imagePath);
                     var tasks = new Task<RecognitionResult>[1];
                     //tasks[0] = _azurePanel.Recogise(img);
-                    tasks[0] = Task.Run(() => _frequencyPanel.Recogise(img, Path.GetFileName(imagePath)));
+                    tasks[0] = Task.Run(() => _frequencyPanel.Recogise(imagePath));
                     Task.WaitAll(tasks);
                     //azureResults.Add(tasks[0].Result);
                     foreach(var res in tasks)
