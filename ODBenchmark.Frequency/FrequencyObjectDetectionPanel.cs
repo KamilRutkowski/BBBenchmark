@@ -336,12 +336,13 @@ namespace ODBenchmark.Frequency
             }
             var xRatio = (float)img.Width / (float)targetX;
             var yRatio = (float)img.Height / (float)targetY;
+            var offset = source[10];
             for (int y = 0; y < targetY; y++)
             {
                 for (int x = 0; x < targetX; x++)
-                {
-                    var index = ((int)((targetY - (y + 1)) * yRatio) * img.Width) + (int)(x * xRatio) + 19;//(source[10] / 8)/*BMP Header offset*/;
-                    resultImage[(y * targetX) + x] = (byte)(/*R*/(source[index * 3] * 0.2989) + /*G*/(source[(index * 3) + 1] * 0.5870) + /*B*/(source[(index * 3) + 2] * 0.1140));
+                {                    
+                    var index = ((int)((targetY - (y + 1)) * yRatio) * img.Width) + (int)(x * xRatio);// + (source[10])/*BMP Header offset*/;
+                    resultImage[(y * targetX) + x] = (byte)(/*R*/(source[index * 3 + offset] * 0.2989) + /*G*/(source[(index * 3) + 1 + offset] * 0.5870) + /*B*/(source[(index * 3) + 2 + offset] * 0.1140));
                 }
             }
             return resultImage;
