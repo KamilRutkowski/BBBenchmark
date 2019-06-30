@@ -340,7 +340,7 @@ namespace ODBenchmark.Frequency
             {
                 for (int x = 0; x < targetX; x++)
                 {
-                    var index = ((int)(y * yRatio) * img.Width) + (int)(x * xRatio) + 20;//(source[10] / 8)/*BMP Header offset*/;
+                    var index = ((int)((targetY - (y + 1)) * yRatio) * img.Width) + (int)(x * xRatio) + 19;//(source[10] / 8)/*BMP Header offset*/;
                     resultImage[(y * targetX) + x] = (byte)(/*R*/(source[index * 3] * 0.2989) + /*G*/(source[(index * 3) + 1] * 0.5870) + /*B*/(source[(index * 3) + 2] * 0.1140));
                 }
             }
@@ -358,8 +358,17 @@ namespace ODBenchmark.Frequency
 
             IntPtr ptr = bmpData.Scan0;
             System.Runtime.InteropServices.Marshal.Copy(ptr, gray24, 0, gray24.Length);
+            //Copy image
             for (int i = 0; i < gray24.Length; i++)
                 gray24[i] = grayImg[i / 3];
+            //Color found points in green
+            foreach(var point in points)
+            {
+                var index = (point.X + (point.Y * _targetX)) * 3;
+                gray24[index] = 0;
+                gray24[index + 1] = 255;
+                gray24[index + 2] = 0;
+            }
             System.Runtime.InteropServices.Marshal.Copy(gray24, 0, ptr, gray24.Length);
             // Unlock the bits.
             bmp.UnlockBits(bmpData);
