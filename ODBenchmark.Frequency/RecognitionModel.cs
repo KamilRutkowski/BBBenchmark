@@ -101,7 +101,7 @@ namespace ODBenchmark.Frequency
         {
             if((Math.Abs(GPSLatitude - _modelGPSLatitude) < 0.0005) && (Math.Abs(GPSLongitude - _modelGPSLongitude) < 0.001))
             {
-                if ((Math.Abs(worldModelRotation - _modelWorldModelRotation) < 0.3f) && (Math.Abs(worldModelVerticalTilt - _modelWorldModelVerticalTilt) < 0.3f))
+                if ((SmallestAngleDifference(worldModelRotation, _modelWorldModelRotation) < 0.3f) && (SmallestAngleDifference(worldModelVerticalTilt, _modelWorldModelVerticalTilt) < 0.3f))
                 {
                     return 0;
                 }
@@ -110,13 +110,14 @@ namespace ODBenchmark.Frequency
             return 2;
         }
 
-        public RecognisedModel Recognise(List<IntPoint>[,] model, float accuracy, float tilt)
+        public RecognisedModel Recognise(List<IntPoint>[,] model, float accuracy, float tilt, string patternOutPath)
         {
             if (_patternNonZero == 0)
                 return new RecognisedModel();
             var pattern = new float[Size, Size];
             var threashold = new bool[Size, Size];
             FillPatternAndThreashold(pattern, threashold, model);
+            SavePattern(patternOutPath, threashold);
             var pat = ClusterPattern(threashold);
             return ComparePattern(pat, tilt, accuracy);
         }
@@ -259,6 +260,38 @@ namespace ODBenchmark.Frequency
             _modelGPSLongitude = GPSLongitude;
             _modelWorldModelRotation = worldModelRotation;
             _modelWorldModelVerticalTilt = worldModelVerticalTilt;
+        }
+
+        private float SmallestAngleDifference(float ang1, float ang2)
+        {
+            var leftAngle = 0.0f;
+            var rightAngle = 0.0f;
+            if (ang1 > ang2)
+            {
+                leftAngle = ang1 - ang2;
+                rightAngle = (2.0f - ang1) + ang2;
+            }
+            else
+            {
+                leftAngle = ang2 - ang1;
+                rightAngle = (2.0f - ang2) + ang1;
+            }
+            return leftAngle > rightAngle ? rightAngle : leftAngle;
+        }
+
+        private void SavePattern(string path, bool[,] pattern)
+        {
+            StringBuilder patString = new StringBuilder();
+            for(int y = 0; y < Size; y++)
+            {
+                for (int x = 0; x < Size; x++)
+                {
+                    int val = pattern[y, x] ? 1 : 0;
+                    patString.Append($"{val};");
+                }
+                patString.Append("\n");
+            }
+            System.IO.File.WriteAllText(path, patString.ToString());
         }
     }
     public class RecognisedModel

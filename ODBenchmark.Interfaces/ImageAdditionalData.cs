@@ -21,5 +21,18 @@ namespace ODBenchmark.Interfaces
             WorldModelVerticalTilt = WorldModelVerticalTilt / 180.0f;
             Tilt = Tilt / 180.0f;
         }
+
+        public ImageAdditionalData Copy()
+        {
+            return new ImageAdditionalData
+            {
+                WorldModelRotation = this.WorldModelRotation,
+                WorldModelVerticalTilt = this.WorldModelVerticalTilt,
+                Tilt = this.Tilt,
+                Latitude = this.Latitude,
+                Longitude = this.Longitude,
+                FileName = this.FileName
+            };
+        }
     }
 }

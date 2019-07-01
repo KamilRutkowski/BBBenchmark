@@ -37,6 +37,7 @@ namespace ODBenchmark.Frequency
         private float _accuracy;
         private string _modelImgPath;
         private string _additionalDataPath;
+        private string _outPath = "";
 
         private HarrisCornerDetection _harris;
         private RecognitionModelHistogram _model;
@@ -128,7 +129,7 @@ namespace ODBenchmark.Frequency
 
             #region Inputs
             _sigmaTB = new TextBox();
-            _sigmaTB.Text = "11";
+            _sigmaTB.Text = "8";
             Grid.SetColumn(_sigmaTB, 1);
             Grid.SetRow(_sigmaTB, 0);
             _frequencyPanel.Children.Add(_sigmaTB);
@@ -140,7 +141,7 @@ namespace ODBenchmark.Frequency
             _frequencyPanel.Children.Add(_orginalMeasureCB);
 
             _thresholdTB = new TextBox();
-            _thresholdTB.Text = "50.0";
+            _thresholdTB.Text = "150.0";
             Grid.SetColumn(_thresholdTB, 1);
             Grid.SetRow(_thresholdTB, 2);
             _frequencyPanel.Children.Add(_thresholdTB);
@@ -158,19 +159,19 @@ namespace ODBenchmark.Frequency
             _frequencyPanel.Children.Add(_accuracyTB);
 
             _targetSizeXTB = new TextBox();
-            _targetSizeXTB.Text = "600";
+            _targetSizeXTB.Text = "400";
             Grid.SetColumn(_targetSizeXTB, 1);
             Grid.SetRow(_targetSizeXTB, 5);
             _frequencyPanel.Children.Add(_targetSizeXTB);
 
             _targetSizeYTB = new TextBox();
-            _targetSizeYTB.Text = "600";
+            _targetSizeYTB.Text = "400";
             Grid.SetColumn(_targetSizeYTB, 1);
             Grid.SetRow(_targetSizeYTB, 6);
             _frequencyPanel.Children.Add(_targetSizeYTB);
 
             _targetHistogramSizeTB = new TextBox();
-            _targetHistogramSizeTB.Text = "21";
+            _targetHistogramSizeTB.Text = "15";
             Grid.SetColumn(_targetHistogramSizeTB, 1);
             Grid.SetRow(_targetHistogramSizeTB, 7);
             _frequencyPanel.Children.Add(_targetHistogramSizeTB);
@@ -270,8 +271,9 @@ namespace ODBenchmark.Frequency
             }
         }
 
-        public async Task<RecognitionResult> Recogise( string filePath)
+        public async Task<RecognitionResult> Recogise(string filePath, string outPath)
         {
+            _outPath = outPath;
             return await RecogniseImage(filePath);
         }
 
@@ -283,6 +285,7 @@ namespace ODBenchmark.Frequency
         private async Task<RecognitionResult> RecogniseImage(string filePath)
         {
             var fileName = Path.GetFileName(filePath);
+            var debugPath = Path.Combine(_outPath, Path.GetFileName(filePath));
             var additionalData = _additionalImageDatas.FirstOrDefault(data => data.FileName == fileName);
             if (additionalData == null)
                 return new RecognitionResult();
@@ -294,7 +297,8 @@ namespace ODBenchmark.Frequency
             var img = System.Drawing.Image.FromFile(filePath);
             var modelImage = ScaleImage(img, _targetY, _targetX);
             var points = _harris.ProcessImage(modelImage, _targetY, _targetX);
-            SaveScaledImageWithPoints(modelImage, points, filePath);
+            //Save processed image
+            SaveScaledImageWithPoints(modelImage, points, debugPath);
             List<IntPoint>[,] recognition = new List<IntPoint>[_targetHistogramSize, _targetHistogramSize];
             for (var y = 0; y < _targetHistogramSize; y++)
             {
@@ -311,7 +315,7 @@ namespace ODBenchmark.Frequency
             }
 
             //For recognition
-            var recognitionResult = _model.Recognise(recognition, _accuracy, additionalData.Tilt);
+            var recognitionResult = _model.Recognise(recognition, _accuracy, additionalData.Tilt, debugPath.Replace(".jpg", "pattern.txt"));
             var result = new RecognitionResult();
             result.MatchFound = recognitionResult.ModelFound;
             result.Confidence = recognitionResult.RecognitionProb;
@@ -336,12 +340,12 @@ namespace ODBenchmark.Frequency
             }
             var xRatio = (float)img.Width / (float)targetX;
             var yRatio = (float)img.Height / (float)targetY;
-            var offset = source[10];
+            var offset = source[10]; //BMP header offset
             for (int y = 0; y < targetY; y++)
             {
                 for (int x = 0; x < targetX; x++)
                 {                    
-                    var index = ((int)((targetY - (y + 1)) * yRatio) * img.Width) + (int)(x * xRatio);// + (source[10])/*BMP Header offset*/;
+                    var index = ((int)((targetY - (y + 1)) * yRatio) * img.Width) + (int)(x * xRatio);
                     resultImage[(y * targetX) + x] = (byte)(/*R*/(source[index * 3 + offset] * 0.2989) + /*G*/(source[(index * 3) + 1 + offset] * 0.5870) + /*B*/(source[(index * 3) + 2 + offset] * 0.1140));
                 }
             }
@@ -350,7 +354,6 @@ namespace ODBenchmark.Frequency
 
         private void SaveScaledImageWithPoints(byte[] grayImg, List<IntPoint> points, string path)
         {
-            path = path.Replace(Path.GetExtension(path), "out.jpg");
             var gray24 = new byte[grayImg.Length * 3];
             
             Bitmap bmp = new Bitmap(_targetX, _targetY, PixelFormat.Format24bppRgb);
@@ -380,7 +383,7 @@ namespace ODBenchmark.Frequency
         {
             var modelImage = ScaleImage(System.Drawing.Image.FromFile(_modelImgPath), _targetY, _targetX);
             string fileName = Path.GetFileName(_modelImgPath);
-            var additionalData = _additionalImageDatas.FirstOrDefault(data => data.FileName == fileName);
+            var additionalData = _additionalImageDatas.FirstOrDefault(data => data.FileName == fileName).Copy();
             additionalData.NormalizeTilts();
             var points = _harris.ProcessImage(modelImage, _targetY, _targetX);
             List<IntPoint>[,] recognition = new List<IntPoint>[_targetHistogramSize, _targetHistogramSize];
